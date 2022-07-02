@@ -1,0 +1,18 @@
+{
+    "table": {
+        "table": "requests"
+    },
+    "data": {
+        "team": "payload.team",
+        "env_type": "payload.env_type",
+        "env_id": "payload.env_id",
+        "organization_name": "payload.organization_name",
+        "app_name": "payload.app_name",
+        "package_name": "payload.package_name",
+        "user_name": "payload.user_name",
+        "user_id": "payload.user_id"
+    },
+    "set": {
+        "request_state": "Approved"
+    }
+}

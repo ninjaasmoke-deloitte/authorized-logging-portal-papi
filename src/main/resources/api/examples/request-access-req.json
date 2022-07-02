@@ -1,0 +1,12 @@
+{
+  "user_id": "123hhh-skbfbskbuef-sfkjbesfk",
+  "envs_id": "kabedkwjkdwnkbd",
+  "app_name": "Salesforce Inventory Manager",
+  "organization_id": "12jhsdhbjd891u2-2138831-2131",
+  "organization_name": "MindTree",
+  "log_level": "DEBUG",
+  "envs_type": "Production",
+  "user_name": "fordive",
+  "access_token": "some-access-token",
+  "package_name": "com.mulesoft"
+}

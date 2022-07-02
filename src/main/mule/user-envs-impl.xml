@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<sub-flow name="user-envs-log-flow" doc:id="e6a3fc13-2a7e-4b4d-8e38-3bd2f41076fc" >
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="35f48479-104d-41f5-a843-6f97bfc5f4d0" variableName="in_data"/>
+		<ee:transform doc:name="Transform Message" doc:id="93a7ab7d-2ddd-4037-b8cf-1e5322149489" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	log: 'GET USER ENVS:/\$/' ++ payload.user.username ++ "/\$/" ++ payload.user.firstName ++ " " ++ payload.user.lastName
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="7927041d-e56b-431f-8742-6de0b8d689e6" name="log-insert-flow"/>
+		<ee:transform doc:name="Transform Message" doc:id="47470e4f-ad19-4732-956d-acd531743cd4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.in_data]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="user-envs-log-error-flow" doc:id="93f65b2f-d1b5-481a-8963-b9c8e13a055b" >
+		<ee:transform doc:name="Transform Message" doc:id="26647178-78a9-4d07-b263-2b363a707ddb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	'log': "ERROR:/\$/Unable to fetch user's environment details!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="ba0fdf4f-b4dd-459f-82ac-72470a623204" name="log-insert-flow"/>
+	</sub-flow>
+	<sub-flow name="user-envs-impl-flow" doc:id="fc390cbc-30b5-4889-9a6d-d156d887243c" >
+		<try doc:name="Try" doc:id="0304562f-97d1-48a8-80da-a25859efd1fa" >
+			<set-variable value="#[attributes.queryParams.accessToken]" doc:name="Set Variable" doc:id="de43151e-f5b9-4f3c-ae7b-8e8139343944" variableName="accessToken"/>
+			<http:request method="GET" doc:name="to get org id" doc:id="324028b4-1d97-4069-bc2e-352c7e8b2f0a" url="https://anypoint.mulesoft.com/accounts/api/me" config-ref="HTTPS_Request_configuration_mulesoft">
+			<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+payload]]]></http:body>
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	Authorization : 'Bearer ' ++ vars.accessToken
+}]]]></http:headers>
+		</http:request>
+			<flow-ref doc:name="Flow Reference" doc:id="5e90528e-e795-45dc-bae4-cf4c3dab414d" name="user-envs-log-flow"/>
+			<ee:transform doc:name="to get all org of user" doc:id="cdef0ebb-d90a-451d-a73b-12a25de6a25f" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+---
+{
+    "user_id": payload.user.id,
+    "org" : payload.user.memberOfOrganizations map
+    
+    {
+        "org_name" : $.name,
+        "organization_id" : $.id
+    }
+    
+}
+]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<flow-ref doc:name="go to env flow" doc:id="bd55a18e-bbf9-41e1-b0d0-28f5530be697" name="env-subflow"/>
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="769804c1-9ab9-4221-98ac-54b28d756553" >
+					<flow-ref doc:name="Flow Reference" doc:id="4178a96a-56db-4e4d-9359-3d1f388f6177" name="log-insert-flow"/>
+					<ee:transform doc:name="Transform Message" doc:id="ac3f259e-b4bd-49b7-bdd9-4f9c7c6cec3a" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	message:"User unauthorized"
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+				
+</on-error-continue>
+			</error-handler>
+		</try>
+	</sub-flow>
+	<sub-flow name="env-subflow" doc:id="9897766f-20d1-42df-87ee-497e714da22d" >
+		<set-variable value="#[[]]" doc:name="to get envs" doc:id="8afd79ac-62b3-4537-8dda-f030f6be660e" variableName="env"/>
+		<foreach doc:name="For Each org " doc:id="aa1de033-b126-4616-b0bd-0c15d965c633" collection="#[payload.org]">
+			<set-payload value="#[payload]" doc:name="for one org" doc:id="fbf369cf-216a-4b1e-a393-3df53faf36a1" />
+			<set-variable value="#[payload.organization_id]" doc:name="orgId " doc:id="ea1768b7-046b-411b-9b4c-61ca0fb83c44" variableName="organization_id"/>
+			<set-variable value="#[payload.org_name]" doc:name="orgName" doc:id="85fd8e4b-66a5-43fc-ae2b-26e0fec4f6a3" variableName="org_name"/>
+			<ee:transform doc:name="Transform Message" doc:id="2496cf48-4df4-4a96-b1da-03b31931afc1" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "organization"
+	},
+	data: {
+		organization_id: vars.organization_id
+	}
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<flow-ref doc:name="Flow Reference" doc:id="88dc222e-86ac-4b48-bd31-6f9397a033f6" name="select-implFlow"/>
+			<choice doc:name="Choice" doc:id="14b5a873-274b-4101-a82d-3cb5d7640564" >
+				<when expression="#[sizeOf(payload) == 0]">
+					<logger level="INFO" doc:name="Logger" doc:id="0d97f071-7acd-4e35-af25-28f703d6e319" message="#[vars.organization_id]"/>
+					<ee:transform doc:name="Transform Message" doc:id="33471499-1b87-4f46-9a31-b5d6e59a0d7f">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+	table: {
+		table: "organization"
+	},
+	data: {
+		org_name: vars.org_name,
+		organization_id: vars.organization_id
+	}
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<flow-ref doc:name="Flow Reference" doc:id="a2dc6b0d-728c-4821-be64-fb5e193d5d91" name="insert-implFlow"/>
+				
+</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="461c9e31-1ad5-4f4a-bbeb-227eba1400d8" message="data is already present"/>
+				</otherwise>
+			</choice>
+			<http:request method="GET" doc:name="GET all env of user anypoint" doc:id="692b3904-1d1d-48bb-8a66-4213d0b63d95" url="https://anypoint.mulesoft.com/accounts/api/organizations/{organization_id}/environments" config-ref="HTTPS_Request_configuration_mulesoft">
+				<http:headers><![CDATA[#[output application/java
+---
+{
+	Authorization : 'Bearer ' ++ vars.accessToken,
+}]]]></http:headers>
+				<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"organization_id" : vars.organization_id
+}]]]></http:uri-params>
+			</http:request>
+			<flow-ref doc:name="Flow Reference" doc:id="82e8ce4d-1dfa-4ebb-93d6-afbe2c60cdc8" name="app-flow1Sub_Flow2"/>
+			<ee:transform doc:name="Transform Message" doc:id="e2209763-f68d-4c6e-88a0-b9d0b5399796">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+env_access : payload.data map {
+    access: true,
+    envs_type: $.name,
+    envs_id: $.id,
+    organization_id: $.organizationId,
+    organization_name: vars.org_name
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<flow-ref doc:name="Flow Reference" doc:id="b7da2129-0e63-4949-8ab5-5f60947de184" name="app-flow1Sub_Flow"/>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="d7d9511b-f3f5-43df-ac68-cf42b83b4e44" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.env
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="app-flow1Sub_Flow" doc:id="238e28d3-c615-48f0-9eb8-42653737169a" >
+		<ee:transform doc:name="Transform Message" doc:id="80683ca6-9bb3-442a-8b70-dfbc270163eb" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="env" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.env + payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="app-flow1Sub_Flow2" doc:id="d97ef7d0-ead5-4cf4-8e33-9d8c5a60df1a" >
+		<foreach doc:name="For Each" doc:id="de32b9f4-7816-4bc2-9e64-3924a74fe541" collection="#[payload.data]">
+				<set-payload value="#[payload]" doc:name="Set Payload" doc:id="a1848c67-e410-4dea-ade4-7450fa8493e3" />
+				<set-variable value="#[payload.id]" doc:name="envId" doc:id="2c9d4188-212f-408b-8881-b4e9b7f0e196" variableName="environment_id" />
+				<set-variable value="#[payload.name]" doc:name="envType" doc:id="04e73ef1-97ca-4496-8da9-7db7684acee5" variableName="envs_type" />
+				<set-variable value="#[payload.organizationId]" doc:name="organizationId" doc:id="71a264b6-b763-4cb2-b09f-354bce0bf579" variableName="organization_id"/>
+			<ee:transform doc:name="Transform Message" doc:id="7381b728-5de5-4f5f-847c-3e8430ecacf7" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "envs"
+	},
+	data: {
+		environment_id: vars.environment_id
+	}
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<flow-ref doc:name="Flow Reference" doc:id="5b9dd540-f502-4099-aa76-8850c77b9e7b" name="select-implFlow"/>
+			<choice doc:name="Choice" doc:id="10949d05-e244-4b03-af90-de8e7f88d294">
+				<when expression="#[sizeOf(payload) == 0]">
+					<logger level="INFO" doc:name="Logger" doc:id="c813a0d6-058f-45f1-95b0-d691f88df051" message="#[payload.environment_id]" />
+					<ee:transform doc:name="Transform Message" doc:id="560bc765-e637-446b-ba84-e05a4b14afc6" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "envs"
+	},
+	data: {
+		environment_id: vars.environment_id,
+		envs_type: vars.envs_type,
+		access: true,
+		organization_id: vars.organization_id
+	}
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<flow-ref doc:name="Flow Reference" doc:id="72e0c2c1-2b7f-428a-8727-e4dadc7f9af2" name="insert-implFlow"/>
+				
+</when>
+				<otherwise>
+					<logger level="INFO" doc:name="Logger" doc:id="edb65f91-1ae0-4eac-b996-01b7e6478835" message="data is already present" />
+				</otherwise>
+			</choice>
+			</foreach>
+	</sub-flow>
+	
+</mule>

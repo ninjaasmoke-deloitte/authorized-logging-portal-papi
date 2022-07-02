@@ -1,0 +1,10 @@
+#%RAML 1.0 DataType
+
+displayName: Environment Access
+type: object
+properties:
+  env_access:
+    type: envType[]
+    items: [envType]
+
+example: !include ../examples/env-access.json

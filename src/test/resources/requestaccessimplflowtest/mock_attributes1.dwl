@@ -1,0 +1,32 @@
+{
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Sat, 02 Jul 2022 05:12:12 GMT",
+    "etag": "W/\"37b-hYch0fDW9a8fbkoL/IYSlsq/pAY\"",
+    "expires": "-1",
+    "pragma": "no-cache",
+    "server": "nginx",
+    "set-cookie": "_csrf=BUNG1loqRkITEbRgcKBB8wMY; Path=/; HttpOnly; Secure",
+    "set-cookie": "XSRF-TOKEN=Z2LQ4xaA-aCPg1teYluyQA9QblZAm3DjBWZM; Path=/; Secure",
+    "set-cookie": "_csrf=DgXYkKVlLvV9RpW6AVJJF3c0; Path=/; HttpOnly; Secure",
+    "strict-transport-security": "max-age=31536000; includeSubDomains",
+    "vary": "Accept-Encoding",
+    "x-anypnt-trx-id": "1167b832-0455-958d-97ce-2c520610689e",
+    "x-content-type-options": "nosniff",
+    "x-dns-prefetch-control": "off",
+    "x-download-options": "noopen",
+    "x-envoy-decorator-operation": "authentication-server.access-management.svc.cluster.local:3004/*",
+    "x-envoy-upstream-service-time": "27",
+    "x-frame-options": "SAMEORIGIN",
+    "x-frame-options": "SAMEORIGIN",
+    "x-ratelimit-limit": "400",
+    "x-ratelimit-remaining": "399",
+    "x-ratelimit-reset": "1656738780",
+    "x-request-id": "1167b832-0455-958d-97ce-2c520610689e",
+    "x-xss-protection": "1; mode=block",
+    "content-length": "891",
+    "connection": "keep-alive"
+  },
+  "reasonPhrase": "OK",
+  "statusCode": 200
+}

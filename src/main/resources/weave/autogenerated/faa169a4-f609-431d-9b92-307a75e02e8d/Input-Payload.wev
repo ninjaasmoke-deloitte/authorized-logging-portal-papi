@@ -1,0 +1,15 @@
+%dw 2.0
+
+type auto_faa169a4_f609_431d_9b92_307a75e02e8d_Input_Payload = {
+  data: {
+    user_id: Number, 
+    name: String, 
+    anypoint_userid: String, 
+    email: String, 
+    username: String, 
+    _?: Any
+  }, 
+  _?: Any
+} {"description": "Detials of a current user",
+"label": "User Details"}
+

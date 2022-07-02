@@ -1,0 +1,14 @@
+%dw 2.0
+
+type auto_19568b14_283a_438d_8cc1_a7dee75ee93a_Input_Payload = {|
+  table: {| table: String |}, 
+  data: {|
+    app_name: String, 
+    access_token: String, 
+    env_id: String, 
+    log_level: String, 
+    package_name: String
+  |}, 
+  set: {| request_state: String |}
+|}
+

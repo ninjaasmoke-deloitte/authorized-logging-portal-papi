@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="update-app-log-level-implFlow" doc:id="5b4b27b0-f477-473e-81b8-ad4c552f4ea4" >
+		<set-variable value="#[message.payload]" doc:name="Set Incoming Data" doc:id="f2e76b00-ec97-4805-9860-8eedad464e07" variableName="incoming_data" />
+		<http:request method="GET" doc:name="GET - current log levels" doc:id="255dea4e-5213-47d8-8bcc-062f57344aa9" url="https://anypoint.mulesoft.com/cloudhub/api/applications/{app_name}/logs/levels" config-ref="HTTPS_Request_configuration_mulesoft">
+			<http:headers><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"Authorization" : "Bearer " ++ payload.access_token,
+	"X-ANYPNT-ENV-ID": payload.env_id
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"app_name" : payload.app_name
+}]]]></http:uri-params>
+		</http:request>
+		<http:request method="PUT" doc:name="POST - Update log levels" doc:id="c7e7f34b-4066-4882-b9af-3c435e4bcdf0" config-ref="HTTPS_Request_configuration_mulesoft" url="https://anypoint.mulesoft.com/cloudhub/api/applications/{app_name}/logs/levels">
+			<http:body><![CDATA[#[payload + {
+		"packageName": vars.incoming_data.package_name,
+		"level": vars.incoming_data.log_level
+	}]]]></http:body>
+			<http:headers><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"Authorization" : "Bearer " ++ vars.incoming_data.access_token,
+	"X-ANYPNT-ENV-ID": vars.incoming_data.env_id
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"app_name" : vars.incoming_data.app_name
+}]]]></http:uri-params>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="2175da8b-b647-4571-84a1-4d7fda5a5b78" message="Update the db here" />
+		<ee:transform doc:name="Transform Message" doc:id="8898b1bf-7ac7-4f18-b1a6-6c552bdc165f">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Successfully updated log level!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="8a967a34-6f1b-4e2f-94b5-98ba258542e1" >
+				<ee:transform doc:name="Transform Message" doc:id="d029074f-5d85-4868-89d6-1284792e8d12" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Updating LOG level failed! Try again, or go to Anypoint Platform.",
+	"error": error.detailedDescription
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_55cc6e53_140c_448f_9515_7f69a68a5621_Output_Variables_user_team = Any
+

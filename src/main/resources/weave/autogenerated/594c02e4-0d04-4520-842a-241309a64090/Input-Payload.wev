@@ -1,0 +1,9 @@
+%dw 2.0
+
+type auto_594c02e4_0d04_4520_842a_241309a64090_Input_Payload = {|
+  error?: String | Null, 
+  email_to_ids?: Any, 
+  team?: "Support-Managers" | "Dev-Managers" | "Test-Managers" | "Admin", 
+  message?: String
+|}
+

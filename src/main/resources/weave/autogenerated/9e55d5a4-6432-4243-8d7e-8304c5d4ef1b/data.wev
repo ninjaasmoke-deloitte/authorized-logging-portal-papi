@@ -1,0 +1,10 @@
+%dw 2.0
+
+type auto_9e55d5a4_6432_4243_8d7e_8304c5d4ef1b_Output_Variables_in_data = {|
+  app_name: String, 
+  access_token: String, 
+  env_id: String, 
+  log_level: String, 
+  package_name: String
+|}
+

@@ -1,0 +1,7 @@
+%dw 2.0
+
+type auto_0dc52da3_50e0_4d98_b9de_70d566eb49e5_Output_Variables_team_det = {|
+  email_to: "Support-Managers" | "Dev-Managers" | "Test-Managers" | "Admin", 
+  team_id: Any
+|}
+

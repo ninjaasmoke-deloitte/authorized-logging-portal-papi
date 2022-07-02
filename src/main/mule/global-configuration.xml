@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation=" http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd  http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+    <apikit:config name="Authorized-Logging-Portal-PAPI-config" api="api\Authorized Logging Portal PAPI.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <http:listener-config name="authorized-logging-portal-papi-httpListenerConfig">
+        <http:listener-connection host="${http.host}" port="${http.port}" readTimeout="${http.time_out}"/>
+    </http:listener-config>
+    <http:request-config name="HTTPS_Request_configuration_mulesoft" doc:name="HTTP Request configuration" doc:id="0b8e1d04-195a-4358-9107-3e4169ddc48e" enableCookies="false">
+        <http:request-connection host="${anypoint.host}" protocol="HTTPS" connectionIdleTimeout="${http.time_out}"/>
+    </http:request-config>
+    <http:request-config name="HTTP_Request_configuration_SAPI" doc:name="HTTP Request configuration" doc:id="39e05833-9d55-4681-9281-7fae0a35e483" enableCookies="false">
+        <http:request-connection host="${sapi.host}" connectionIdleTimeout="${http.time_out}"/>
+    </http:request-config>
+    <http:request-config name="HTTP_Request_configuration_email" doc:name="HTTP Request configuration" doc:id="bbb167b7-19e0-4c2c-8a98-5c1096dd6555">
+        <http:request-connection host="${email.host}" connectionIdleTimeout="${http.time_out}"/>
+    </http:request-config>
+    <api-gateway:autodiscovery apiId="17924655" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="c020aa7d-bee6-4ac1-8457-73b4c4f81abd" flowRef="Authorized-Logging-Portal-PAPI-main" />
+	<configuration-properties doc:name="Configuration properties" doc:id="79d8e21c-81ce-4320-8efa-6ac3160aa9b9" file="properties\dev.properties" />
+	<configuration-properties doc:name="Configuration properties" doc:id="bb17dd49-9e42-4429-a4e1-803c4ee66c72" file="admin.properties" />
+  </mule>

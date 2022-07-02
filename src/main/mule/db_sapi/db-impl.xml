@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:sockets="http://www.mulesoft.org/schema/mule/sockets" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/sockets http://www.mulesoft.org/schema/mule/sockets/current/mule-sockets.xsd">    <db:config name="Database_Config" doc:name="Database Config" doc:id="0bf7feca-b825-4066-85d4-5edbdea583ce">
+    <db:generic-connection url="jdbc:postgresql://queenie.db.elephantsql.com:5432/skvoosrx" driverClassName="org.postgresql.Driver" user="skvoosrx" password="UH3okjhIdd7EUfskvbrMBuL1qoQ_nnxL" />
+    </db:config>
+	<flow name="select-implFlow" doc:id="faa169a4-f609-431d-9b92-307a75e02e8d" >
+		<ee:transform doc:name="Transform Message" doc:id="ebc3f823-2fb1-4af3-9c80-de82503305f7" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+var data = message.payload.data
+var table = message.payload.table.table
+var connector = payload.connector default " AND "
+---
+{
+    query: if(data == null) ("Select * from " ++ table) else ("Select * from " ++ table ++ " where " ++
+    ((data filterObject ((value, key, index) -> (value != null and value != "")) mapObject ((value, key, index) -> {
+        myData : (key as String) ++ " = :" ++ (key as String)
+    })).*myData joinBy  connector)),
+    inputParam: data filterObject ((value, key, index) -> (value != null and value != ""))
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:select doc:name="Select" doc:id="f0b19442-df96-40b0-bf5e-4d4efbf3e98a" config-ref="Database_Config">
+			<db:sql ><![CDATA[#[payload.query]]]></db:sql>
+			<db:input-parameters ><![CDATA[#[payload.inputParam default {}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="ea56a479-b5af-4dfe-81a6-2f35a76cf4c5" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="fd8a12f8-e3db-4e4c-b4d7-6d70710c99b1" >
+				<ee:transform doc:name="Transform Message" doc:id="64c93979-f8b6-4848-9d49-b5b8ee2c37a9" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Unable to select!",
+	"details": error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="db-select-SAPI" doc:id="05222b50-effb-48fb-99db-d5cb72f7bc2c">
+		<http:request method="GET" doc:name="Request" doc:id="1ce359a4-5ed9-4cf3-bf13-d9f189f8cfac" config-ref="HTTP_Request_configuration_SAPI" url="http://authorized-logging-portal-sapi.us-e2.cloudhub.io/api/selectdb">
+			<http:headers ><![CDATA[#[import p from Mule
+output application/java
+---
+{
+	"client_id" : p('client_id'),
+	"client_secret": p('client_secret')
+}]]]></http:headers>
+		</http:request>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="faad2392-cac5-456f-8387-15f7f98661b4" >
+				<ee:transform doc:name="Transform Message" doc:id="4b50331b-a087-4d5f-827e-60a0d751aad8" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: error.detailedDescription
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[401]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="select-any" doc:id="0dc52da3-50e0-4d98-b9de-70d566eb49e5" >
+		<db:select doc:name="Select" doc:id="d5660d59-2343-4773-98aa-3ec71c4e3231" config-ref="Database_Config">
+			<db:sql ><![CDATA[#[payload.q]]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="3e33c192-91b4-4496-8eba-92acdaa61e71" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="insert-implFlow" doc:id="994d201c-fd31-43b9-97f1-22d5e3577afc" >
+		<ee:transform doc:name="Transform Message" doc:id="49854f9a-0eb3-4c9d-86ef-adf1bbd201c1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var data = payload.data
+---
+
+{
+query: "insert into " ++ payload.table.table ++ " (" ++ ((data filterObject ((value, key, index) -> (value != null and value != "")) mapObject ((value, key, index) -> {
+myData: (key as String)
+
+})).*myData joinBy ", ") ++ ") values" ++ "(" ++ ((data filterObject ((value, key, index) -> (value != null and value != "")) mapObject ((value, key, index) -> {
+myData: ":" ++(key as String)
+})).*myData joinBy ", ") ++ ")",
+inputParam: data filterObject ((value, key, index) -> (value != null and value != ""))
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:insert doc:name="Insert" doc:id="f08937ee-fed9-4803-af0d-a1fc3759b34e" config-ref="Database_Config">
+			<db:sql ><![CDATA[#[payload.query]]]></db:sql>
+			<db:input-parameters ><![CDATA[#[payload.inputParam default {}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="Transform Message" doc:id="9f4484be-4e6e-4ab4-bb8e-746b6ca75080" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Inserted!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="58a1f745-1489-4c07-8818-9a56f2cb9510" >
+				<ee:transform doc:name="Transform Message" doc:id="e9b445a5-2e94-40c9-ab82-dd8ea85377d1" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Unable to insert!",
+	"details": error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="update-implFlow" doc:id="19568b14-283a-438d-8cc1-a7dee75ee93a" >
+		<ee:transform doc:name="Transform Message" doc:id="6ce6ace8-5483-48c1-9f99-f9e3b0de0934" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+
+output application/json
+
+var table = payload.table.table
+var data = payload.data
+var set = payload.set
+---
+
+{
+query: "update " ++ table ++ " set " ++((set filterObject ((value, key, index) -> (value != null and value != "")) mapObject ((value, key, index) -> {
+    myData : (key as String) ++ " = :" ++ (key as String)
+
+})).*myData joinBy " AND ") ++ " where " ++
+
+((data filterObject ((value, key, index) -> (value != null and value != "")) mapObject ((value, key, index) -> {
+
+myData : (key as String) ++ " = :" ++ (key as String)
+
+})).*myData joinBy " AND "),
+
+inputParam: (data ++ set) filterObject ((value, key, index) -> (value != null and value != ""))
+
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:update doc:name="Update" doc:id="68fe145b-858f-4739-8ce9-56405d5d1d53" config-ref="Database_Config">
+			<db:sql ><![CDATA[#[payload.query]]]></db:sql>
+			<db:input-parameters ><![CDATA[#[payload.inputParam default {}]]]></db:input-parameters>
+		</db:update>
+		<ee:transform doc:name="Transform Message" doc:id="f8c8dab8-23d3-40d6-81eb-337d4dfd1c63" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Updated!"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a3f973a9-7143-497f-9600-f8fa13b15b03" >
+				<ee:transform doc:name="Transform Message" doc:id="ca7d624f-f2e5-4a58-8e73-ee6d9f0c8e76" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Unable to update!",
+	"details": error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

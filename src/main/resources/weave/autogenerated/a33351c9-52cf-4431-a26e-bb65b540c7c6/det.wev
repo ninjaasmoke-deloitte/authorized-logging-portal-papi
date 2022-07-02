@@ -1,0 +1,7 @@
+%dw 2.0
+
+type auto_a33351c9_52cf_4431_a26e_bb65b540c7c6_Output_Variables_team_det = {|
+  email_to: String, 
+  team_id: Any
+|}
+

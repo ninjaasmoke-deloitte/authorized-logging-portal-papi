@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:request-config name="HTTP_Request_configuration_LOG" doc:name="HTTP Request configuration" doc:id="350566b3-5644-4688-9b59-c3980003f70c" >
+		<http:request-connection host="authorized-logs.us-e2.cloudhub.io" />
+	</http:request-config>
+	<flow name="log-impl-flow" doc:id="34732bfc-c6f4-4c62-a9da-8fc4e7ed50e6" >
+		<http:request method="GET" doc:name="Request" doc:id="62309977-3f62-4551-af25-9252d49ec22b" config-ref="HTTP_Request_configuration_SAPI" url="http://authorized-logs.us-e2.cloudhub.io/api/logs-all">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"client_id" : Mule::p('client_id'),
+	"client_secret": Mule::p('client_secret')
+}]]]></http:headers>
+		</http:request>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="dac1761b-b3d5-46c9-847f-b6587ec92da8" >
+				<ee:transform doc:name="Transform Message" doc:id="1c77028c-7e25-494d-801d-fe2696e4d4d0" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Unable to fetch logs!",
+	error: error.detailedDescription
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="log-csv-impl-flow" doc:id="4634e8ee-caf6-4047-a16c-546d9d533eef" >
+		<http:request method="GET" doc:name="Request" doc:id="0edd24e1-152d-416c-9523-fc6cfc9a1b5e" config-ref="HTTP_Request_configuration_LOG" url="http://authorized-logs.us-e2.cloudhub.io/api/csv" outputMimeType="application/csv">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"client_id" : Mule::p('client_id'),
+	"client_secret": Mule::p('client_secret')
+}]]]></http:headers>
+		</http:request>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="10852eda-88ea-42fe-9d17-314925f12d0a" >
+				<ee:transform doc:name="Transform Message" doc:id="7d82cbe6-230a-41bb-afae-c39df470c45e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Unable to fetch CSV for logs",
+	error: error.detailedDescription
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="log-insert-flow" doc:id="3cbe56fe-9ba6-4027-a3c6-d897b0818dbc" >
+		<http:request method="POST" doc:name="Request" doc:id="8bc0f6a1-794a-484b-9b5d-328f34d2d960" config-ref="HTTP_Request_configuration_LOG" url="http://authorized-logs.us-e2.cloudhub.io/api/inlogs">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"client_id" : Mule::p('client_id'),
+	"client_secret": Mule::p('client_secret')
+}]]]></http:headers>
+		</http:request>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="eb85f211-0450-4d1e-b67a-3647a22cd2a7" >
+				<logger level="INFO" doc:name="Logger" doc:id="59259136-7272-46e7-8627-434323db49cb" message="#[{&#10;	message: 'Unable to insert log',&#10;	error: error.detailedDescription&#10;}]"/>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+</mule>

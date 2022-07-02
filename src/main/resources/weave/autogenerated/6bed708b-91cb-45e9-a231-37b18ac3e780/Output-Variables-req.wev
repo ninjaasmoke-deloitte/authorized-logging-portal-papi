@@ -1,0 +1,7 @@
+%dw 2.0
+
+type auto_6bed708b_91cb_45e9_a231_37b18ac3e780_Output_Variables_req = {|
+  message: String, 
+  details: String | Null
+|}
+

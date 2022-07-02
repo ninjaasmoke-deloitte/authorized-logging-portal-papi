@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<flow name="send-email-implFlow" doc:id="fa953866-bcfd-429b-9a40-bb490f391aa8" >
+		<logger level="INFO" doc:name="Logger" doc:id="371429f7-a23c-4a0d-b025-d2035351d7c2" />
+		<set-variable value="#[message.payload]" doc:name="Set Variable Incoming Data" doc:id="40d4da11-f62f-4e59-91b2-9f8e785deb67" variableName="in_data"/>
+		<http:request method="GET" doc:name="GET - Anypoint Teams" doc:id="0337ddef-4a72-4a4e-a572-be1be96c67fc" config-ref="HTTPS_Request_configuration_mulesoft" url="https://anypoint.mulesoft.com/accounts/api/organizations/{organization_id}/teams">
+			<http:headers ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"Authorization": "Bearer " ++ payload.access_token
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"organization_id" : payload.organization_id
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="eaaac558-4789-4a20-85ff-e2216c6242d1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var from_team = vars.in_data.team
+var env = vars.in_data.env_type
+
+var email_to_team = from_team match  {
+    case t if(t == 'Support') -> 'Support-Managers'
+    case t if(t == 'Dev' and env != 'Restricted') -> 'Dev-Managers'
+    case t if(t == 'Testers' and env != 'Restricted') -> 'Test-Managers'
+    else -> 'Admin'
+}
+var team_det = payload.data filter ((item, index) -> item.team_name == email_to_team)
+---
+{
+	"email_to": email_to_team,
+	"team_id": team_det[0].team_id,
+	"team": team_det[0].team_name
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="a84ac6a5-8e74-4429-a9b2-4d47d5031f81" variableName="team_det"/>
+		<http:request method="POST" doc:name="POST - Anypoint Login" doc:id="1d69adb8-57cc-45b3-8f84-35c42d38aa31" config-ref="HTTPS_Request_configuration_mulesoft" url="https://anypoint.mulesoft.com/accounts/login" >
+			<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"username" : Mule::p('username'),
+	"password" : Mule::p('pwd')
+}]]]></http:body>
+		</http:request>
+		<http:request method="GET" doc:name="GET - Anypoint team details" doc:id="d274a6e6-2a2e-4db9-b942-612ff377fbd1" config-ref="HTTPS_Request_configuration_mulesoft" url="https://anypoint.mulesoft.com/accounts/api/organizations/{organization_id}/teams/{team_id}/members">
+			<http:headers ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"Authorization" : "Bearer " ++ payload.access_token
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"team_id" : vars.team_det.team_id,
+	"organization_id" : vars.in_data.organization_id
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="5806e8eb-85dd-4bd9-a60f-a1a1289e0a62" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[output application/json
+
+var emails = payload.data map ((item, index) -> ("'" ++ item.id ++ "'"))  joinBy ", "
+---
+{
+    "q" : "select * from users where anypoint_userid in (" ++ emails ++ ")",
+    "e": emails
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="2d91e55f-e5c4-4751-8cd6-d2eb8492e29c" >
+			<when expression="#[sizeOf(payload.e) != 0]">
+				<flow-ref doc:name="Flow Reference" doc:id="0e1f5c57-a2d7-40e3-bfb3-bff9737af4d4" name="select-any" />
+				<ee:transform doc:name="Transform Message" doc:id="a404d92c-d6f3-4f4d-a741-ae8ccd80a1ff">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+var data = {
+  subject: "New Access Request",
+  body: "<body style='font-family: sans-serif;'> <div style='width:100%'> <div> <br> <div> <span style='font-size:1.5rem;font-weight:bolder'>" ++ (vars.in_data.user_name default "") ++"</span> <span>(" ++ (vars.in_data.team default "") ++ ")</span> <br> <span>" ++ (vars.in_data.organization_name default "") ++ ",</span> <br><br> <span>is requesting access to:</span> </div> <br> </div> <table style='border-radius:4px;border:2px; width: 100%;'> <tr style='background-color:#293241'> <th style='border-radius:4px;padding:1rem;text-align:center;color:white'>ENVIRONMENT</th> <th style='border-radius:4px;padding:1rem;text-align:center;color:white'>APPLICATION</th> <th style='border-radius:4px;text-align:center;padding:1rem;color:white'>LOG LEVEL</th> </tr> <tr style='background-color:#dde5e9'> <td style='border-radius:4px;padding:1rem;text-align:center;'>" ++ (vars.in_data.env_type default "" )++ "</td> <td style='border-radius:4px;padding:1rem;text-align:center;font-family:Sans-serif;'>" ++ (vars.in_data.app_name default "" ) ++ "</td> <td style='border-radius:4px;padding:1rem;text-align:center;'>" ++ (vars.in_data.log_level default "" ) ++ "</td> </tr> </table> <br> <div><a href='https://log-portal.vercel.app/' style='text-decoration:none; color:white;font-weight:bold;font-size:1rem;'><button style='padding: 12px;background:#2FA4FF;outline:none;border:none;border-radius:4px;width:100%; cursor:pointer;color:white;'>View In Portal</button></a></div></div></body>",
+  recipient :  payload map ((item, index) -> item.email),
+  small: "<h2>You have received a new request.</h2> <br> <a href='https://log-portal.vercel.app/' style='text-decoration:none;'>Click here to open in portal</a>"
+}
+---
+{
+  "subject" : "New Access Request",
+  "body" :  data.body,
+  "recipient" : data.recipient[0]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<set-variable value="#[payload]" doc:name="Set Variable" doc:id="b34fc142-e776-4764-8560-240db192d84e" variableName="email_data" />
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="adf1f2aa-8180-4e5d-bb29-5ca0a278f89e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+var data = {
+  subject: "New Access Request",
+  body: "<body style='font-family: sans-serif;'> <div style='width:100%'> <div> <br> <div> <span style='font-size:1.5rem;font-weight:bolder'>" ++ (vars.in_data.user_name default "") ++"</span> <span>(" ++ (vars.in_data.team default "") ++ ")</span> <br> <span>" ++ (vars.in_data.organization_name default "") ++ ",</span> <br><br> <span>is requesting access to:</span> </div> <br> </div> <table style='border-radius:4px;border:2px; width: 100%;'> <tr style='background-color:#293241'> <th style='border-radius:4px;padding:1rem;text-align:center;color:white'>ENVIRONMENT</th> <th style='border-radius:4px;padding:1rem;text-align:center;color:white'>APPLICATION</th> <th style='border-radius:4px;text-align:center;padding:1rem;color:white'>LOG LEVEL</th> </tr> <tr style='background-color:#dde5e9'> <td style='border-radius:4px;padding:1rem;text-align:center;'>" ++ (vars.in_data.env_name default "" )++ "</td> <td style='border-radius:4px;padding:1rem;text-align:center;font-family:Sans-serif;'>" ++ (vars.in_data.app_name default "" ) ++ "</td> <td style='border-radius:4px;padding:1rem;text-align:center;'>" ++ (vars.in_data.log_level default "" ) ++ "</td> </tr> </table> <br> <div><a href='https://log-portal.vercel.app/' style='text-decoration:none; color:white;font-weight:bold;font-size:1rem;'><button style='padding: 12px;background:#2FA4FF;outline:none;border:none;border-radius:4px;width:100%; cursor:pointer;color:white;'>View In Portal</button></a></div></div></body>",
+}
+---
+{
+  "subject" : "New Access Request",
+  "body" :  data.body,
+  "recipient" : "nithinsaikj@gmail.com"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<try doc:name="Try" doc:id="3b54f140-7655-49dc-bfde-0864c6862e6b">
+			<flow-ref doc:name="Flow Reference" doc:id="5e594fe8-f301-4c10-8aed-98599cc6421d" name="send-email-request" />
+			<error-handler>
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="d0cd2b28-14cb-4798-ae14-95e5af8db6a7">
+					<logger level="INFO" doc:name="Logger" doc:id="8fd27696-266c-4a09-8094-40f110c75107" message='#[{&#10;	"m": "Unable to send mail",&#10;	"e": error.detailedDescription&#10;}]' />
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="32859516-0642-4956-ad4f-9c99319eca71" >
+				<ee:transform doc:name="Transform Message" doc:id="28ec0284-78f5-42ef-9507-a272469bf86d" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Unable to send email"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<sub-flow name="send-email-request" doc:id="c56febd5-ef7b-40bb-ba7f-8817c0a12c45" >
+		<flow-ref doc:name="Flow Reference" doc:id="55d597fd-4acd-4d20-90c5-3531f46070c3" name="send-email-log-flow"/>
+		<try doc:name="Try" doc:id="8353efbf-cfeb-450e-8a4f-bc45b372fa1b" >
+			<http:request method="POST" doc:name="Request" doc:id="f270d83b-4002-42df-9b2b-24d093dbfc4c" url="http://authorized-logging-portal-email-sapi.us-e2.cloudhub.io/api/send-req_res" config-ref="HTTP_Request_configuration_email" outputMimeType="application/json">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"client_secret" : "f167F37D1d8348fb99beEd58ECD2bbF9",
+	"client_id" : "f400b52e2f384f988d6a3efaa1c69cd2"
+}]]]></http:headers>
+		</http:request>
+			<error-handler >
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b5e52b14-8cac-4691-b394-027b70d2cc49" >
+					<ee:transform doc:name="Transform Message" doc:id="e572e63e-c1e7-4060-978b-71db8790e6a2" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Unable to send email to recipient!"
+}]]></ee:set-payload>
+						</ee:message>
+						<ee:variables >
+							<ee:set-variable variableName="httpStatus" ><![CDATA[401]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</sub-flow>
+	<flow name="send-email-log-flow" doc:id="a33351c9-52cf-4431-a26e-bb65b540c7c6" >
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="1a188698-a8e3-4ae0-91c2-8e89c72970a4" variableName="in"/>
+		<ee:transform doc:name="Transform Message" doc:id="9d8a465a-fb9c-4806-b35b-e5764c249747" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	log: "SENDING EMAIL:/\$/to: " ++ payload.recipient ++ "/\$/about:" ++ vars.in.subject
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="552722b1-7e1f-49a1-bc56-ec038a68d5af" name="log-insert-flow"/>
+		<ee:transform doc:name="Transform Message" doc:id="832c91e6-2aab-4430-b156-24e0613f4bce" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.in]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="67f501f2-ccd5-4945-a178-bd820fff0597" >
+				<logger level="INFO" doc:name="Logger" doc:id="1f926ceb-609a-4ad1-9486-e35a87ee2c6e" message="Unable to insert log- in send-email-impl"/>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+</mule>

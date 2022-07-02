@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<sub-flow name="request-access-log-flow" doc:id="97731800-9ac2-4739-91f5-60748ae3b4c4" >
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="adf4f74e-fdf7-41f4-a5c4-e4cf6195698c" variableName="in"/>
+		<ee:transform doc:name="Transform Message" doc:id="d09888c5-82c5-4fa0-a27a-58d1265681bd" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	'log': "requesting access:/\$/User: " ++ vars.user_payload.user_name ++ "/\$/App: " ++ vars.user_payload.app_name ++ "/\$/" ++ vars.user_payload.package_name ++ "/\$/env: " ++ vars.user_payload.envs_type ++ "/\$/org: " ++ vars.user_payload.organization_name
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="00ad1c51-b723-4d28-aca4-30c6183783c7" name="log-insert-flow"/>
+		<ee:transform doc:name="Transform Message" doc:id="312dc0bf-f2f8-42d5-b582-81e54a64d014" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.in]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<flow name="request-access-impl-flow" doc:id="b37ddce6-a867-4635-80b3-5b2a9369ad59" >
+		<set-variable value="#[message.payload]" doc:name="Set User Payload" doc:id="f0361634-124f-43d1-86f3-640a01ac4226" variableName="user_payload"/>
+		<http:request method="GET" doc:name="GET - user's team details" doc:id="889070cd-a3fa-48c3-95a7-77bf705643c3" url="https://anypoint.mulesoft.com/accounts/api/organizations/{organization_id}/users/{user_id}/teams" config-ref="HTTPS_Request_configuration_mulesoft">
+			<http:headers ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"Authorization": "Bearer " ++ payload.access_token
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"organization_id" : payload.organization_id,
+	"user_id" : payload.user_id
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="6401cf41-f435-4107-a969-3f3699dd4e71">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var teamDetails = payload.data filter ((item, index) -> (item.team_name != "Hashedin By Deloitte" and item.iteam_name != "Viewers"))
+---
+{
+//	"team_details": teamDetails[0],
+	"team": teamDetails[0].team_name,
+	"env_type": vars.user_payload.envs_type,
+	"env_id": vars.user_payload.envs_id,
+	"organization_name": vars.user_payload.organization_name,
+	"app_name": vars.user_payload.app_name,
+	"package_name": vars.user_payload.package_name,
+	"user_name": vars.user_payload.user_name,
+	"user_id": vars.user_payload.user_id,
+	"log_level": vars.user_payload.log_level
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="httpStatus"><![CDATA[202]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="Insert Log" doc:id="a8400ec6-1f00-48c7-8619-d1edd7bf36ec" name="request-access-log-flow"/>
+		<set-variable value="#[payload]" doc:name="Set Transformed Data" doc:id="4d86d604-bc54-47ec-813a-1b033e3c0270" variableName="transform_data"/>
+
+		<ee:transform doc:name="Transform Message" doc:id="6f123b83-1343-47cd-a22f-10305cc59807" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	},
+	data: {
+		team: vars.transform_data.team,
+		env_type: vars.transform_data.env_type,
+		env_id: vars.transform_data.env_id,
+		organization_name: vars.transform_data.organization_name,
+		app_name: vars.transform_data.app_name,
+		user_name: vars.transform_data.user_name,
+		user_id: vars.transform_data.user_id,
+		package_name: vars.transform_data.package_name,
+		log_level: vars.transform_data.log_level
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="632742dd-5961-4a2b-903e-4a9ab49fa986" name="select-implFlow"/>
+		<choice doc:name="Choice" doc:id="39833f48-71aa-42c7-8984-8baf4827ac5b" >
+			<when expression="#[sizeOf(payload)==0]">
+				<ee:transform doc:name="Transform Message" doc:id="13fc0d85-b1e8-4556-b708-a064f805f0f0">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+vars.transform_data ++ {
+"access_token": vars.user_payload.access_token, 
+"organization_id" : vars.user_payload.organization_id
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Flow Reference" doc:id="0e9e9abf-eef9-4923-bedc-9c05ecff39d6" name="request-access-impl-choice-table"/>
+			</when>
+			<otherwise >
+				<flow-ref doc:name="Flow Reference" doc:id="3dd325cc-af91-4792-a1a2-b64edef4389d" name="request-access-request-exists-subFlow"/>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="ab5d3367-288e-4a9b-a9d6-772cd5bdfc19" >
+				<ee:transform doc:name="Transform Message" doc:id="8494c0ae-3007-417e-bed0-52cf0d66fec3" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Failed to make request",
+	"details": error.detailedDescription
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<sub-flow name="request-access-impl-choice-table" doc:id="eaae8e87-e30e-4f37-b5d9-86e73a13ac95" >
+		<set-payload value="#[message.payload]" doc:name="Set Payload" doc:id="f8314d22-fea1-407a-9048-3186d2b72e4b" />
+		<logger level="INFO" doc:name="Logger" doc:id="7091b381-7c65-45a1-b371-d0238289f4f1" message="in choice"/>
+		<choice doc:name="Choice" doc:id="41698ade-f952-4d75-94fc-ac99dbf6c7c7" >
+			<when expression="#['None' == payload.env_type]">
+				<logger level="INFO" doc:name="Logger" doc:id="0cc7bfa2-9844-40ce-bd2a-a76b11f4d932" message="NONE type"/>
+				<ee:transform doc:name="Transform Message" doc:id="437bada7-2296-47a8-b795-2ce562d482e5">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"app_name": payload.app_name,
+	"access_token": payload.access_token,
+	"env_id": payload.env_id,
+	"log_level": payload.log_level,
+	"package_name": payload.package_name
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Flow Reference - Update Log" doc:id="efc5df00-97c2-4ef9-b6d4-d9e7d55365a5" name="update-app-log-level-implFlow"/>
+				<ee:transform doc:name="Transform Message" doc:id="8aa0401d-bf0e-41d6-9669-017df4d1251b">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	state: 'Auto Approved',
+	request_to: 'Self'
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Flow Reference" doc:id="49041241-70b2-4cb1-ad9b-722491dd7ce6" name="request-access-add-request-to-db-subFlow"/>
+			</when>
+			<when expression="#['Basic' == payload.env_type]">
+				<logger level="INFO" doc:name="Logger" doc:id="bb50f116-d1f5-4783-ad1e-24be9a20194b" message="Basic"/>
+				<choice doc:name="Choice" doc:id="78251637-1711-4844-8fec-bafb0062a466" >
+					<when expression="#['Dev' == payload.team]">
+						<flow-ref doc:name="Flow Reference - Send Request Mail" doc:id="af2f8e8e-1263-4e99-91a5-36a1e7f033a9" name="send-email-implFlow"/>
+						<ee:transform doc:name="Transform Message" doc:id="6c53da78-2cf6-471c-a9ba-45be5b04e2f7">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	state: 'Active',
+	request_to: 'Dev-Managers'
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<flow-ref doc:name="Flow Reference" doc:id="7fa41292-6863-4e02-9e69-483a393edee7" name="request-access-add-request-to-db-subFlow" />
+					</when>
+					<when expression="#['Support' == payload.team or 'Testers' == payload.team]">
+						<flow-ref doc:name="Flow Reference - Update Log" doc:id="58822359-5267-4db0-ac7a-afc3aa3f8551" name="update-app-log-level-implFlow"/>
+						<ee:transform doc:name="Transform Message" doc:id="f35098b9-d3c2-4c34-9b40-c7a0ca870843">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	state: 'Auto Approved',
+	request_to: 'Self'
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<flow-ref doc:name="Flow Reference" doc:id="14d278db-5d1e-492a-b95f-73be2b4e5f9d" name="request-access-add-request-to-db-subFlow"/>
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Transform Message" doc:id="4e57e7e2-8601-4711-85ca-72f2f4bf28f1" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "You do not belong you any of the Teams! Contact your organization admin."
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="httpStatus" ><![CDATA[451]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</when>
+			<when expression="#['Protected' == payload.env_type]">
+				<logger level="INFO" doc:name="Logger" doc:id="33fc011b-f989-4de3-8a16-3e2189887edc" message="Protected"/>
+				<flow-ref doc:name="Flow Reference - Send Request Mail" doc:id="9ba02c87-6984-4429-a295-75b223978a6b" name="send-email-implFlow" />
+				<ee:transform doc:name="Transform Message" doc:id="3d83286a-9127-4b8e-93e5-ce81efa65fde" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	state: 'Active'
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Flow Reference" doc:id="a2e0db7c-c2c6-4e49-9950-8228c13335d0" name="request-access-add-request-to-db-subFlow"/>
+			</when>
+			<when expression="#['Restricted' == payload.env_type]">
+				<logger level="INFO" doc:name="Logger" doc:id="f45a59af-c030-45f3-8bd9-61c8422b6839" message="Resctricted"/>
+				<choice doc:name="Choice" doc:id="ee721651-1f0f-487f-915b-1cd5a8d77d41" >
+					<when expression="#['Dev' == payload.team or 'Testers' == payload.team]">
+						<ee:transform doc:name="Transform Message" doc:id="d65d251b-ac59-4106-9a5a-b1c7e4fd28ea" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "You are not allowed to access that!"
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="httpStatus" ><![CDATA[403]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</when>
+					<when expression="#['Support' == payload.team]">
+						<flow-ref doc:name="Flow Reference - Send Request Mail" doc:id="7a5a172e-3dfb-4bcb-a34b-440e1d01f61e" name="send-email-implFlow" />
+						<ee:transform doc:name="Transform Message" doc:id="caa6349a-0c14-4876-bd1a-ea9886add0aa" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	state: 'Active'
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<flow-ref doc:name="Flow Reference" doc:id="c531606f-9125-4bd6-a3a7-6e0965b22d09" name="request-access-add-request-to-db-subFlow"/>
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Transform Message" doc:id="94c4c31f-4262-48f8-b741-f42fddc75fc8" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "You do not belong you any of the Teams! Contact your organization admin."
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="httpStatus" ><![CDATA[451]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="646723bc-95af-4a8a-81f8-028e49b18ff7" message="Default"/>
+				<ee:transform doc:name="Transform Message" doc:id="ef64bbde-97d0-4d06-95ec-8933cd8dbb35" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Unknown environment! Please contact your organization admin."
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="request-access-add-request-to-db-subFlow" doc:id="594c02e4-0d04-4520-842a-241309a64090" >
+		<ee:transform doc:name="Transform Message" doc:id="e5c69888-d6ea-41b3-a440-94f23b19fd24" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	},
+	data: {
+		request_state: payload.state default 'Active',
+		team: vars.transform_data.team,
+		env_type: vars.transform_data.env_type,
+		env_id: vars.transform_data.env_id,
+		organization_name: vars.transform_data.organization_name,
+		app_name: vars.transform_data.app_name,
+		package_name: vars.transform_data.package_name,
+		user_name: vars.transform_data.user_name,
+		user_id: vars.transform_data.user_id,
+		log_level: vars.transform_data.log_level,
+		request_to: vars.team_det.team
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="8b6ab801-5682-4052-bc21-5683bdee1307" name="insert-implFlow"/>
+		<logger level="INFO" doc:name="Logger" doc:id="63264994-71aa-40cf-8073-c9f2ffe742b3" />
+		<ee:transform doc:name="Transform Message" doc:id="c961d24b-8623-49ec-9be9-f0a2e29d485e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Successfully requested access!",
+	"data": payload
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="request-access-request-exists-subFlow" doc:id="a3fe0325-f567-441f-8f8b-529df9f3c578" >
+		<ee:transform doc:name="Transform Message" doc:id="11309b2e-4038-448a-91d8-ecca3ddc431f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Request already exists",
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="httpStatus" ><![CDATA[406]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+	</sub-flow>
+</mule>

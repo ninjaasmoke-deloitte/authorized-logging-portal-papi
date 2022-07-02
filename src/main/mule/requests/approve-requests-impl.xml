@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="approve-requests-log-flow" doc:id="9e55d5a4-6432-4243-8d7e-8304c5d4ef1b" >
+		<set-variable value="#[message.payload]" doc:name="Set Variable" doc:id="b070e009-e558-4125-a8da-8c058b6b47a0" variableName="in"/>
+		<ee:transform doc:name="Transform Message" doc:id="ad038749-039e-4a2e-a636-4802e1907d4a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	'log': 'GRANTING ACCESS:/\$/App: ' ++ vars.in_data.app_name ++ "/\$/Package: " ++ vars.in_data.package_name ++ "/\$/Log Level:" ++ vars.in_data.log_level
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="d3194b20-18e0-4076-ad39-9087ab5ee0f9" name="log-insert-flow"/>
+		<ee:transform doc:name="Transform Message" doc:id="1c40d932-f1d2-4ae9-9e5d-bec51eb030b0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.in]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="deny-requests-log-flow" doc:id="aa8da4c2-0069-4299-90f3-f7e03d1e7e6d" >
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="1be9e7ef-8bf7-4c57-b806-2f711defefff" variableName="in"/>
+		<ee:transform doc:name="Transform Message" doc:id="097efa7c-5f6c-4cba-8ab9-a365d935ef5d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	'log': 'DENYING ACCESS:/\$/App: ' ++ vars.in_data.app_name ++ "/\$/Package: " ++ vars.in_data.package_name ++ "/\$/Log Level:" ++ vars.in_data.log_level
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="ba2a05e2-c31f-4802-9512-aa83c82ae89b" name="log-insert-flow"/>
+		<ee:transform doc:name="Transform Message" doc:id="b0e2a620-88f5-4b6c-9ba3-151579eacea6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.in]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<flow name="approve-requests-impl-flow" doc:id="92e7c282-482c-40bc-a67f-b7c39c8121c2" >
+		<ee:transform doc:name="Transform Message" doc:id="6d5d1a70-e123-41a3-a8b0-4befeefdfa51" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"app_name": message.payload.app_name,
+	"access_token": message.payload.access_token,
+	"env_id": message.payload.env_id,
+	"log_level": message.payload.log_level,
+	"package_name": message.payload.package_name
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="be3abe13-0d34-4956-a3b9-9b27228e06cb" variableName="in_data"/>
+		<choice doc:name="Choice" doc:id="be504b9f-5f28-444c-abde-2fbd6590b1c6" >
+			<when expression="#[attributes.queryParams.approve == 'true']">
+				<flow-ref doc:name="Grant Log" doc:id="31a1ac10-1dba-4c3a-99a9-1652367e7005" name="approve-requests-log-flow"/>
+				<flow-ref doc:name="Flow Reference" doc:id="e58ab4de-3460-4d0d-9857-367a886544bd" name="update-app-log-level-implFlow" />
+				<ee:transform doc:name="Transform Message" doc:id="6ac30e2d-2485-4029-bfd4-61660055ba84" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	},
+	data: {
+		app_name: vars.in_data.app_name,
+		env_id: vars.in_data.env_id,
+		log_level: vars.in_data.log_level,
+		package_name: vars.in_data.package_name
+	},
+	set: {
+		request_state: 'Approved'
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Flow Reference" doc:id="bbaa36fd-63b3-47b0-bbd4-24671297bb4f" name="update-implFlow"/>
+				<try doc:name="Try" doc:id="3fba814f-0968-477a-9992-3628e6ea8f40" >
+					<flow-ref doc:name="Flow Reference" doc:id="14887bfd-def5-4df0-b9db-2097637f12dc" name="approve-requests-impl-email-flow"/>
+					<error-handler >
+						<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="352b32c3-673b-40ae-b42a-200c934b036e" >
+							<logger level="INFO" doc:name="Logger" doc:id="587c6e9c-c118-41fc-a3cd-c4fca4a3842f" message='#[error]'/>
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</when>
+			<otherwise >
+				<flow-ref doc:name="Deny Log" doc:id="3396e46b-3570-4b92-8ecf-629e85bf3f65" name="deny-requests-log-flow"/>
+				<ee:transform doc:name="Transform Message" doc:id="02df9552-372f-44bd-8ba1-5797a7c05b13" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Denied access successfully!"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<ee:transform doc:name="Transform Message" doc:id="319f3864-4887-4a25-8738-4706afd2f762" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	},
+	data: {
+		app_name: vars.in_data.app_name,
+		env_id: vars.in_data.env_id,
+		log_level: vars.in_data.log_level,
+		package_name: vars.in_data.package_name
+	},
+	set: {
+		request_state: 'Denied'
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Flow Reference" doc:id="c6903880-8cf0-4eb2-8b6f-d6e7a28d98f6" name="update-implFlow"/>
+				<try doc:name="Try" doc:id="9097514b-a301-4ece-8b59-67100c7acab5" >
+					<flow-ref doc:name="Flow Reference" doc:id="8b26479b-33c5-4669-b2c7-f0fe1c56f711" name="deny-requests-implemail-flow"/>
+					<error-handler >
+						<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="c7137d9f-18aa-49a9-9a6b-53fe56101876" >
+							<logger level="INFO" doc:name="Logger" doc:id="38782e80-403c-4569-ab53-aa341069ce44" message='#[error]'/>
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="d2af6d22-d7c1-43bc-9d62-1842a71bab94" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Updated request!"
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="httpStatus" ><![CDATA[201]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="39f92b46-90eb-4d60-ab8a-0d7dbc57413e" >
+				<ee:transform doc:name="Transform Message" doc:id="b6414418-d17c-4899-9ad4-70b65f04f603" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Unable to approve requests!"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[403]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<sub-flow name="approve-requests-impl-email-flow" doc:id="6bed708b-91cb-45e9-a231-37b18ac3e780" >
+		<ee:transform doc:name="Transform Message" doc:id="a6105983-93c3-4054-942d-c92b7c2f8b7c">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	},
+	data: {
+		app_name: vars.in_data.app_name,
+		env_id: vars.in_data.env_id,
+		log_level: vars.in_data.log_level,
+		package_name: vars.in_data.package_name,
+		request_state: 'Approved'
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="a6a2c23a-dbc5-411c-a4f5-112e5be116d3" name="select-implFlow" />
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="1b10cc3c-2d5f-43ed-9a5e-6cce0937f9b9" variableName="req" />
+		<try doc:name="Try" doc:id="e2cd2431-690b-46ba-80fe-83aff8cf1d4d" >
+			<choice doc:name="Choice" doc:id="bad4b8f7-444e-4b88-a8e9-df1c4d1d1d3f">
+					<when expression="#[sizeOf(payload) != 0]">
+						<ee:transform doc:name="Transform Message" doc:id="42146e5b-a7e5-4e03-9772-fc5eb717cc24">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "users"
+	},
+	data: {
+		anypoint_userid: payload[0].user_id
+	}
+	
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<flow-ref doc:name="Flow Reference" doc:id="ff0dac5b-28d6-46b5-aa8d-f6a94d4385e2" name="select-implFlow" />
+						<ee:transform doc:name="Transform Message" doc:id="94b3cabb-73ef-42e9-9c6a-cf11f3eceff0">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "subject" : "Request Approval",
+  "body" :  "<body style='font-family: sans-serif;'> <div style='width:100%'> <div> <h3>Your request for <br><h2>" ++ vars.req[0].app_name ++ "</h2> (" ++ (vars.req[0].package_name default "") ++ ") " ++ "has been APPROVED!</h3> </div> <br> <div><button style='padding: 12px;background:#2FA4FF;outline:none;border:none;border-radius:4px;width:100%; cursor:pointer;'><a href='https://log-portal.vercel.app/' style='text-decoration:none; color:white;font-weight:bold;font-size:1rem;'>View In Portal</a> </button> </div> </div> </body>",
+  "recipient" : payload[0].email
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					<flow-ref doc:name="Flow Reference" doc:id="4e8c64e7-27d4-46c6-b41f-77820107038e" name="send-email-request"/>
+					</when>
+				<otherwise>
+					<logger level="INFO" doc:name="Logger" doc:id="12f26b3a-9ab7-4d7a-ad37-07df47d3b2cb" message="Unable to fetch user details"/>
+					</otherwise>
+				</choice>
+		</try>
+	</sub-flow>
+	<sub-flow name="deny-requests-implemail-flow" doc:id="6e58b65c-817b-4784-8590-606cd7682a36" >
+<ee:transform doc:name="Transform Message" doc:id="3e66e262-9406-482c-b590-7cbd6a378521">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	},
+	data: {
+		app_name: vars.in_data.app_name,
+		env_id: vars.in_data.env_id,
+		log_level: vars.in_data.log_level,
+		package_name: vars.in_data.package_name,
+		request_state: 'Denied'
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="8f79736e-77a6-45c2-a3e1-6738b1da65e5" name="select-implFlow" />
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="2be86b83-0450-4424-a9c9-75f5f451ee8b" variableName="req" />
+		<try doc:name="Try" doc:id="0b7ed111-c0ce-4dff-83c2-9d59fc2b65d1" >
+			<choice doc:name="Choice" doc:id="1c627add-b115-4235-964d-8cdc3343a352">
+					<when expression="#[sizeOf(payload) != 0]">
+						<ee:transform doc:name="Transform Message" doc:id="aab7c6af-875a-4317-8398-10e38590fc99">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "users"
+	},
+	data: {
+		anypoint_userid: payload[0].user_id
+	}
+	
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<flow-ref doc:name="Flow Reference" doc:id="5325501e-9d5a-452d-abcc-0403c358cc50" name="select-implFlow" />
+						<ee:transform doc:name="Transform Message" doc:id="5581d553-6d6b-4e1a-ad82-ad01a90bdb30">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "subject" : "Request Approval",
+  "body" :  "<body style='font-family: sans-serif;'> <div style='width:100%'> <div> <h3>Your request for <br><h2>" ++ vars.req[0].app_name ++ "</h2> (" ++ (vars.req[0].package_name default "") ++ ") " ++ "has been DENIED!</h3> </div> <br><div><a href='https://log-portal.vercel.app/' style='text-decoration:none; color:white;font-weight:bold;font-size:1rem;'><button style='padding: 12px;background:#2FA4FF;outline:none;border:none;border-radius:4px;width:100%; cursor:pointer;color:white;'>View In Portal</button></a></div></div></body>",
+  "recipient" : payload[0].email
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					<flow-ref doc:name="Flow Reference" doc:id="b9000fc8-67ce-4329-b3cd-d55e3acd9e3f" name="send-email-request"/>
+					</when>
+				<otherwise>
+					<logger level="INFO" doc:name="Logger" doc:id="7fc5ca61-8959-4f9e-8a59-3cfab0779662" message="Unable to fetch user details"/>
+
+					</otherwise>
+				
+</choice>
+		</try>
+	</sub-flow>
+</mule>

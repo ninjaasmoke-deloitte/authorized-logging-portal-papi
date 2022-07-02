@@ -1,0 +1,14 @@
+%dw 2.0
+
+type auto_97731800_9ac2_4739_91f5_60748ae3b4c4_Input_Payload = {|
+  team: Any, 
+  env_type: Null, 
+  env_id: Null, 
+  organization_name: Null, 
+  app_name: Null, 
+  package_name: Null, 
+  user_name: Null, 
+  user_id: Null, 
+  log_level: Null
+|}
+

@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="requests-impl-flow" doc:id="d5838f84-6e04-41d4-b852-f1e8c61b285d" >
+		<set-variable value="#[attributes.queryParams]" doc:name="Set Variable" doc:id="8e609508-90c6-4d47-a8d8-abf067aaa793" variableName="params"/>
+		<http:request method="GET" doc:name="GET - user's team details" doc:id="5d723f7b-e6a9-4368-8fac-9990037a86ae" url="https://anypoint.mulesoft.com/accounts/api/organizations/{organization_id}/users/{user_id}/teams" config-ref="HTTPS_Request_configuration_mulesoft">
+			<http:headers ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"Authorization": "Bearer " ++ attributes.queryParams.accessToken
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"organization_id" : attributes.queryParams.orgId,
+	"user_id" : attributes.queryParams.userId
+}]]]></http:uri-params>
+		</http:request>
+		<flow-ref doc:name="Flow Reference" doc:id="75330d16-9e6e-43f4-b015-db1832717fd7" name="requests-log-flow"/>
+		<ee:transform doc:name="Transform Message" doc:id="39a68043-07d8-4b71-b419-47a22a44d1df" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+var d = payload.data filter ((item, index) -> (item.team_name contains 'Manager'))
+var m = d[0].team_name contains  ('Manager')
+---
+{
+    team: d[0].team_name,
+    approve: m
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="e443491c-78fa-4501-8017-65675a747062" >
+			<when expression="#[payload.approve]">
+				<ee:transform doc:name="Transform Message" doc:id="0be4c013-9002-44c0-a407-e6d27b9226c0" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	},
+	data: {
+		request_to: payload.team
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<flow-ref doc:name="Flow Reference" doc:id="e6222f6e-db2e-4756-8cc1-855e7499998b" name="select-implFlow" />
+				<ee:transform doc:name="Transform Message" doc:id="ce4747d9-a675-4973-a977-22100a5a6241" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var o = payload map ((item, index) -> item ++ {'approver': true})
+---
+o]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="dbaf3f55-6c39-42e0-a758-566de5f0f854">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	},
+	data: {
+		user_id: vars.params.userId
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<flow-ref doc:name="Flow Reference" doc:id="84dfb889-68b5-47a2-875f-bb56c441bbc3" name="select-implFlow"/>
+				<ee:transform doc:name="Transform Message" doc:id="d798d359-8e1d-4d46-b0a3-9f4b5d3c4427">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="requests-log-flow" doc:id="8b3ef513-abdd-482a-a326-911e60d2bf32" >
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="184b20a0-eef9-4b8e-83ea-997f4bfab7cd" variableName="in_data"/>
+		<ee:transform doc:name="Transform Message" doc:id="282d853d-9a1d-4f47-b411-4a18d89282f3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	log: "GET REQUESTS/\$/by user:/\$/" ++ (vars.params.userId default "") ++ "/\$/"
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="4f99e97a-139a-4d3a-920f-2860a7309232" name="log-insert-flow" />
+		<ee:transform doc:name="Transform Message" doc:id="ece558b4-d537-42ea-9a75-a29ec4f6457d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.in_data]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="requests-get-all-impl" doc:id="55cc6e53-140c-448f-9515-7f69a68a5621" >
+		<http:request method="GET" doc:name="Copy_of_GET - user's team details" doc:id="12aa11aa-ed26-49ed-aa9a-7806f5cccddc" config-ref="HTTPS_Request_configuration_mulesoft" url="https://anypoint.mulesoft.com/accounts/api/organizations/{organization_id}/users/{user_id}/teams" >
+			<http:headers ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"Authorization": "Bearer " ++ attributes.queryParams.accessToken
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"organization_id" : attributes.queryParams.orgId,
+	"user_id" : attributes.queryParams.userId
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="7dff9e3e-2640-4bfd-86a7-41a0c753dfbf" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+var m = payload.data filter ((item, index) -> (item.team_name contains 'Manager') or (item.team_name contains 'Admin'))
+var approve = sizeOf(m) > 0
+var team = payload.data filter ((item, index) -> (item.team_name != 'Hashedin By Deloitte' and item.team_name != 'Viewers'))
+---
+{
+    approve: approve,
+    team: team.team_name[0]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set User's Team" doc:id="f1138605-5c62-4d14-84ab-f8000a11a79b" variableName="user_team"/>
+		<flow-ref doc:name="Copy_of_Flow Reference" doc:id="2330280a-9af1-4382-9f4b-a2ab5345cc00" name="requests-log-flow" />
+		<ee:transform doc:name="Copy_of_Transform Message" doc:id="61689e5e-4f58-47b2-bdfe-5b1658dad9e6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	table: {
+		table: "requests"
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Copy_of_Flow Reference" doc:id="8dfe02ac-d51e-469e-9523-bd6dff10ca9b" name="select-implFlow" />
+		<ee:transform doc:name="Transform Message" doc:id="bef6aea2-5da9-46a5-8eb0-d922ed956007" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+var somevar = vars.user_team
+
+var reqs = payload map ((item, index) -> (
+    if(somevar.approve == false) item
+    else if(somevar.team contains 'Admin') item ++ {approver: true}
+    else if(item.request_to contains somevar.team) item ++ {approver : true}
+    else item
+    ))
+---
+reqs]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+</mule>

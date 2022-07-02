@@ -1,0 +1,5 @@
+{
+    "subject": "test-mail",
+    "body": "test-mail-body",
+    "recipient": "test-mail-recipient"
+}

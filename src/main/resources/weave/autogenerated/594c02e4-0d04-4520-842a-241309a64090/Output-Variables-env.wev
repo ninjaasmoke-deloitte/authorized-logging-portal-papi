@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_594c02e4_0d04_4520_842a_241309a64090_Output_Variables_env = Array<Nothing>
+

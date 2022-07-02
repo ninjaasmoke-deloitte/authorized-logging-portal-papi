@@ -1,0 +1,18 @@
+#%RAML 1.0 DataType
+displayName: Request Access Request Body
+type: object
+properties:
+  log_level:
+    type: string
+    enum: ['DEBUG', 'WARN', 'ERROR', 'INFO']
+  app_name: string
+  envs_type : string
+  envs_id: string
+  organization_id: string
+  organization_name: string
+  user_id: string
+  user_name: string
+  access_token: string
+  package_name: string
+
+example: !include ../examples/request-access-req.json

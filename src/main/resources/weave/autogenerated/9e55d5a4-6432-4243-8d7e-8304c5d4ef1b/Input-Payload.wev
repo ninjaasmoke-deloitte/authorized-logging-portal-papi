@@ -1,0 +1,10 @@
+%dw 2.0
+
+type auto_9e55d5a4_6432_4243_8d7e_8304c5d4ef1b_Input_Payload = {|
+  app_name: Null, 
+  access_token: Null, 
+  env_id: Null, 
+  log_level: Null, 
+  package_name: Null
+|}
+

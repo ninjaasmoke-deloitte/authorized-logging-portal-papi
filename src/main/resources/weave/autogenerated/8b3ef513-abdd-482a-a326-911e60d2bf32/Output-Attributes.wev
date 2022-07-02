@@ -1,0 +1,23 @@
+%dw 2.0
+
+type auto_8b3ef513_abdd_482a_a326_911e60d2bf32_Output_Attributes = {|
+  remoteAddress*: String, 
+  localAddress*: String, 
+  clientCertificate*?: {|
+    publicKey?: {|  |}, 
+    "type"?: String, 
+    encoded?: Binary
+  |}, 
+  uriParams*: {|  |}, 
+  queryParams*: {| username: String |}, 
+  requestPath*: String, 
+  relativePath*: String, 
+  scheme*: String, 
+  version*: String, 
+  method*: String, 
+  requestUri*: String, 
+  queryString*: String, 
+  headers*: {|  |}, 
+  listenerPath*: String
+|}
+

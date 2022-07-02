@@ -1,0 +1,17 @@
+#%RAML 1.0 DataType
+displayName: User Details
+description: Detials of a current user
+type: object
+properties:
+  data:
+    type: object
+    properties:
+      user_id : integer
+      username : string
+      email : string
+      name : string
+      anypoint_userid: string
+      viewer: boolean
+      manager: boolean
+
+example: !include ../examples/user-details.json

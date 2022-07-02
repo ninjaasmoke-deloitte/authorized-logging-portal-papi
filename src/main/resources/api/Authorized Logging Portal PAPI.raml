@@ -1,0 +1,143 @@
+#%RAML 1.0
+title: Authorized Logging Portal PAPI
+
+types:
+  userDetailsType: !include datatypes/user-details.raml
+  envType: !include datatypes/env.raml
+  envAccessType: !include datatypes/env-access.raml
+  userLoginType: !include datatypes/user-login.raml
+  loginCredentialType: !include datatypes/login-cred.raml
+  requestAccessReqType: !include datatypes/request-access-req.raml
+  approveRequestReqType: !include datatypes/approve-request-req.raml
+  requestType: !include datatypes/request-type.raml
+  requestsType: !include datatypes/requests-type.raml
+  logType: !include datatypes/log-type.raml
+
+traits:
+  clientId: !include traits/client-credentials.raml
+
+/user-details:
+  description: Fetch user details from system-api
+  get:
+    is : [clientId]
+    queryParameters:
+      username:
+        type: string
+        example: "ninjaasmoke"
+      accessToken:
+        type: string
+        example: "01bad991-9468-42e1-b155-41bae6b51119"
+    description: Fetch user detials
+    responses:
+      200:
+        description: "Fetches user details from system-api"
+        body:
+          application/json:
+            type: userDetailsType
+      
+/user-envs:
+  description: Fetch user's envs from ORG-ID as 'env_access'
+  get:
+    is : [clientId]
+    queryParameters:
+      accessToken:
+        type: string
+        example: "skjfnejnf-jebfhebf-sekjffb"
+    description: Fetch user's envs from ORG-ID as 'env_access'
+    responses:
+      200:
+        description: "List of objects of type Env"
+        body:
+          application/json:
+            type: envAccessType[]
+
+/user-login:
+  description: Log the user into the portal
+  post:
+    is : [clientId]
+    description: Log the user into the portal
+    body:
+      application/json:
+        type: loginCredentialType
+    responses:
+      200:
+        description: "User details after successful login"
+        body:
+          application/json:
+            type: userLoginType
+      401:
+        description: "User login failed"
+        body:
+          application/json:
+            type: object
+            example: { "message": "Login failed! User unauthorized." }
+
+/request-access:
+  description: Request Access to a particular application log level
+  post:
+    is : [clientId]
+    description: Request Access to a particular application log level
+    body:
+      application/json:
+        type: requestAccessReqType
+    responses:
+      202:
+        description: Succesfully posted accesss request
+        body:
+          application/json:
+            type: object
+            example: { "message": "Successfully posted request!" }
+
+/approve-request:
+  description: Approve the request for access of log levels by updating the Log Level
+  post:
+    is : [clientId]
+    queryParameters:
+      approve:
+        type: boolean
+        example: false
+    description: Approve the request for access of log levels by updating the Log Level
+    body:
+      application/json:
+        type: approveRequestReqType
+    responses:
+      201:
+        description: Successfully updated the log level => giving access to those logs
+        body:
+          application/json:
+            type: object
+            example: { "message": "Updated the logs!" }
+
+/requests:
+  description: Get a list of requests for user
+  get:
+    is: [clientId]
+    queryParameters:
+      accessToken: string
+      userId: string
+      orgId: string
+    responses:
+      200:
+        description: Get a list of requests for user
+        body:
+          application/json:
+            type: requestsType
+
+/logs:
+  description: Get list of logs
+  get:
+    is: [clientId]
+    responses:
+      200:
+        body:
+          application/json:
+            type: logType[]
+
+/log-csv:
+  description: Get list of all logs as CSV
+  get:
+    is: [clientId]
+    responses:
+      200:
+        body:
+          application/csv:

@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_6e39ff7f_ae80_45eb_b44c_ec4ddafef982_Output_Variables_user_detail = {| data: Any |}
+

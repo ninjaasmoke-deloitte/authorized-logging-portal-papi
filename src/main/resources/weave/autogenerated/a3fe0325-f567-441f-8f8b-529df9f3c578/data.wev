@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_a3fe0325_f567_441f_8f8b_529df9f3c578_Output_Variables_transform_data = Any
+

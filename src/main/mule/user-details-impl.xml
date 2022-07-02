@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<sub-flow name="user-details-impl-sub-flow" doc:id="c0210c50-feca-49ed-9fec-573384a9e2ff" >
+		<set-variable value="#[attributes.queryParams.accessToken]" doc:name="Set Variable" doc:id="a272cc1b-3c60-4914-9baa-cba701dd5f2f" variableName="bearer"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c3017bd6-7520-4b36-a050-0b62adde3bd6" message="In sub flow"/>
+		<ee:transform doc:name="Transform Message" doc:id="922a8345-e826-4acc-bbe4-7a3cce168e54" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"table": {
+		"table": "users"
+	}, 
+	"data": {
+		"username": attributes.queryParams.username
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="GET - user details" doc:id="d6b58f3c-ea5b-4d07-8945-0064bec35ab1" name="select-implFlow"/>
+		<ee:transform doc:name="Transform Message" doc:id="317364c6-f455-4ea1-9135-c5512b8e59d0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{data: payload[0]}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="33c1cf72-0ad6-4d68-8f9a-7858bf28ae90" variableName="user_detail"/>
+		<http:request method="GET" doc:name="Request" doc:id="ff65c109-4398-4990-8aa1-632d2b540345" config-ref="HTTPS_Request_configuration_mulesoft" url="https://anypoint.mulesoft.com/accounts/api/organizations/006f1616-6658-4fb6-b292-7ea810323907/users/{user_id}/teams">
+					<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.bearer
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"user_id" : payload.data.anypoint_userid
+}]]]></http:uri-params>
+				
+</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="1062afbb-f752-46bd-a5ac-f4ede8bed7d6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var v = sizeOf(payload.data) < 3
+var m = payload.data filter ((item, index) -> (item.team_name contains 'Manager') or (item.team_name contains 'Admin'))
+---
+{
+	data: vars.user_detail.data ++ {viewer: v} ++ {manager: sizeOf(m) > 0}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="103fa719-9401-4408-9bdf-0af3b8bc1432" name="user-details-log-flow"/>
+	
+</sub-flow>
+	<sub-flow name="user-details-log-flow" doc:id="6e39ff7f-ae80-45eb-b44c-ec4ddafef982" >
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="143456e2-4e68-4c19-9ee4-f410f35afeab" variableName="in_data"/>
+		<ee:transform doc:name="Transform Message" doc:id="cf6b9a68-85e1-4487-8d7d-bc49e8b231d6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	log: "GET USER DETAILS/\$/" ++ payload.data.username ++ "/\$/" ++ payload.data.name
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="d8fbd1ac-672d-4b55-9280-43b96cc40e87" name="log-insert-flow"/>
+		<ee:transform doc:name="Transform Message" doc:id="3a023ad3-4ad8-49fc-8485-eeaeec5d3bc6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.in_data]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+</mule>

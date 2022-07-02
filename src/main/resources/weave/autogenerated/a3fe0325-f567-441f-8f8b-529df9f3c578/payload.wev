@@ -1,0 +1,14 @@
+%dw 2.0
+
+type auto_a3fe0325_f567_441f_8f8b_529df9f3c578_Output_Variables_user_payload = {
+  app_name: String, 
+  user_id: String, 
+  user_name: String, 
+  organization_id: String, 
+  log_level: "WARN", 
+  envs_id: String, 
+  organization_name: String, 
+  envs_type: String, 
+  _?: Any
+} {"label": "Request Access Request Body"}
+

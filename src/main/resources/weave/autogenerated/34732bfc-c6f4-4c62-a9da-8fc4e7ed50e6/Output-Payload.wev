@@ -1,0 +1,7 @@
+%dw 2.0
+
+type auto_34732bfc_c6f4_4c62_a9da_8fc4e7ed50e6_Output_Payload = {|
+  message: String, 
+  error: String | Null
+|}
+

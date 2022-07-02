@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_3042c1b8_b9dc_4945_b626_178806438fbb_Output_Variables_bearer = Any
+
